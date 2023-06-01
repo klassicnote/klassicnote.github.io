@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en-SG">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+	<meta content="utf-8" http-equiv="encoding">
+	<link href="https://fonts.googleapis.com/css?family=Noto Sans" rel="stylesheet">
+	<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="index.css">
+	<link rel="manifest" href="manifest.json">
+	<link rel="icon" sizes="192x192" type="image/png" href="music-svgrepo-com-custom.png" />
+	<link rel="apple-touch-icon" sizes="192x192" href="music-svgrepo-com-custom.png" />
+	<script src="darkmode.js"></script>
+	<script src="sql-wasm.js" defer></script>
+	<script src="config.js" defer></script>
+	<script src="index.js" defer></script>
+</head>
+<body>
+	<div class="head calc centered">
+		<div id="header" class=" centered padded" style="position: relative;">
+			<h1 id="title" class="header-element"></h1><div id="cover"></div>
+			<h6 class="header-element">Powered by SQL.js</h6>
+		</div>
+		<div id="filters" class="padded"></div>
+		<div id="music-player" class="">
+			<div id="music"></div>
+		</div>
+	</div>
+	<div class="loader material-icons"></div>
+	<div id="tab-buttons" class="calc centered padded tab-buttons hidden">
+		<button id="button-tab-info" class="tab-button" onclick="showTab(this.id)">Info</button>
+		<button id="button-tab-related" class="tab-button" onclick="showTab(this.id)">Related</button>
+		<button id="button-tab-awards" class="tab-button" onclick="showTab(this.id)">Awards</button>
+		<button id="button-tab-ranking" class="tab-button" onclick="showTab(this.id)">Rankings</button>
+		<button id="button-tab-analysis" class="tab-button" onclick="showTab(this.id)">Analysis</button>
+		<button id="button-tab-compilation" class="tab-button" onclick="showTab(this.id)">Compilations</button>
+		<button id="button-tab-collection" class="tab-button" onclick="showTab(this.id)">Collection</button>
+		<button id="button-tab-sotd" class="tab-button" onclick="showTab(this.id)">Song of the Day</button>
+	</div>
+	<div id="tab-list">
+		<div id="tab-homepage" data-name="Homepage">
+			<div id="award-years" class="module"></div>
+			<div id="search-history" class="module"></div>
+			<div id="upcoming-releases" class="module"></div>
+		</div>
+		<div id="tab-info" class="tab" data-name="Info">
+			<div id="year-info" class="module"></div>
+			<div id="song-info" class="module"></div>
+			<div id="artist-info" class="module"></div>
+			<div id="release-info" class="module"></div>
+			<div id="artist-release" class="module"></div>
+			<div id="year-list" class="module"></div>
+		</div>
+		<div id="tab-related" class="tab" data-name="Related">
+			<div id="artist-related" class="module"></div>
+			<div id="release-related" class="module"></div>
+			<div id="songs-related-date" class="module"></div>
+			<div id="songs-related-year" class="module"></div>
+			<div id="songs-related-collab" class="module"></div>
+			<div id="artist-songs-5y" class="module"></div>
+			<div id="artist-songs-10y" class="module"></div>
+			<div id="artist-songs-15y" class="module"></div>
+			<div id="artist-featured" class="module"></div>
+		</div>
+		<div id="tab-awards" class="tab" data-name="Awards">
+			<div id="song-awards" class="module bordered"></div>
+		</div>
+		<div id="tab-ranking" class="tab" data-name="Rankings">
+			<div id="song-ranking" class="module bordered"></div>
+		</div>
+		<div id="tab-analysis" class="tab" data-name="Analysis">
+			<div id="vocal-popularity" class="module bordered"></div>
+			<div id="single-bside" class="module bordered"></div>
+			<div id="song-language" class="module bordered"></div>
+			<div id="release-year" class="module bordered"></div>
+			<div id="anime-songs" class="module bordered"></div>
+			<div id="song-appetite" class="module bordered"></div>
+			<div id="popular-songs" class="module bordered"></div>
+			<div id="release-artisttype" class="module bordered"></div>
+			<div id="release-releasetype" class="module bordered"></div>
+		</div>
+		<div id="tab-compilation" class="tab" data-name="Compilations">
+			<div id="song-compilation" class="module bordered"></div>
+		</div>
+		<div id="tab-collection" class="tab" data-name="Collection">
+			<div id="ultimate-collection" class="module bordered"></div>
+		</div>
+		<div id="tab-sotd" class="tab" data-name="Song of the Day">
+			<div id="song-sotd" class="module bordered"></div>
+			<div id="song-sotm" class="module bordered"></div>
+		</div>
+	</div>
+	<div id="settings" class="calc centered padded settings">
+		<a id="darkmode" title="Toggle Dark Mode" class="darkmode material-icons" href="javascript:void(0);" onclick="toggleDarkMode()">brightness_high</a>
+		<a id="queue-skip" title="Play (Next) Song" class="material-icons" style="vertical-align: text-top;" href="javascript:void(0);" onclick="skipSong()">play_circle</a>
+		<a id="shuffle-mode" title="Toggle Shuffle Mode" class="setting material-icons" data-alt="shuffle_on" href="javascript:void(0);">shuffle</a>
+		<span class="controls">
+			<select id="queue-options">
+				<option value="any">Any</option>
+				<option value="genre">Same Genre</option>
+				<option value="artist">Same Artist</option>
+				<option value="release">Same Release</option>
+				<option value="year">Same Year</option>
+			</select>
+		</span>
+	</div>
+	<div class="context hidden"></div>
+</body>
+</html>

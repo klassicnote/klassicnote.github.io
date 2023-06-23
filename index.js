@@ -374,7 +374,6 @@ function checkIfMiniMode() {
 
 function renderVariables() {
 	// set variables here, do not define above
-	window['autoplay'] = autoplayOnSelect;
 	window['db'] = null;
 	window['playlist'] = [];
 	window['shuffle-mode'] = false;
@@ -390,8 +389,6 @@ function renderVariables() {
 }
 
 function renderSettings() {
-	if(autoplayOnSelect)
-		document.getElementById('autoplay').click();
 	updateQueueButtons();
 }
 
@@ -2124,7 +2121,6 @@ function updateQueue(next) {
 
 function updateQueueButtons() {
 	document.querySelector('#queue-options').style.display = window['shuffle-mode'] ? '' : 'none';
-	window['autoplay'] = document.querySelector('#autoplay').innerText === 'music_note';
 }
 
 function scrollToTop() {
@@ -2207,7 +2203,6 @@ function queueSongs(ids) {
 	window['playlist'] = ids;
 	window['playing'] = -1;
 	window['mode'] = 'song';
-	if(!window['autoplay']) document.querySelector('.autoplay').click();
 	
 	let optQuery = "SELECT * FROM Song WHERE KNID = ";
 	optQuery += window['playlist'][window['playing'] + 1];

@@ -2139,7 +2139,6 @@ function clearModules() {
 
 function updateSong() {	
 	window['mode'] = 'song';
-	let playlistOpen = document.querySelector('#song-queue').innerText === 'format_indent_increase';
 	hideContextMenus(true);
 	clearModules();
 	
@@ -2148,17 +2147,6 @@ function updateSong() {
 	if(debugMode) console.log('updateSong', query);
 	queryDb(query, updateOptions);
 	// window['playlist'].push(id.toString());
-	if(playlistOpen) // from playlist selection
-	{
-		window['playing'] = window['playlist'].indexOf(this.getAttribute('data-id')) - 1;
-		if(document.querySelector('#song-queue') != null)
-			document.querySelector('#song-queue').innerText = 'format_align_justify';
-	}
-	else if(!playlistOpen && window['playlist'][window['playlist'].length - 1] != id)
-	{
-		window['playlist'].push(id.toString());
-		updateQueue(window['playlist'].length - 1);
-	}
 }
 
 function updateYear() {
@@ -2654,7 +2642,7 @@ function showContextMenu() {
 	
 	let box = document.body.getBoundingClientRect();
     let x = event.clientX - box.left;
-    let y = event.clientY - box.top - document.querySelector('#song-queue').getBoundingClientRect().height;
+    let y = event.clientY - box.top;
 	
 	let menu = document.querySelector('.context');
     menu.style.top = y + 'px';
@@ -2790,8 +2778,6 @@ function clearPlaylist() {
 
 function hideContextMenus(forced) {
 	document.removeEventListener('click', hideContextMenus);
-	if(document.querySelector('#song-queue') != null)
-		document.querySelector('#song-queue').innerText = 'format_align_justify';	
 	
 	let contextOpen = false;
 	let menu = document.querySelector('.context');

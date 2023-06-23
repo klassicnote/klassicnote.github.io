@@ -121,58 +121,75 @@ function onFeedback() {
 }
 
 //--FUNCTIONS--//
-async function callDb(query, callback) {
+async function callDb() {
 	const time = Date.now();
 	//for webassembly file
 	const sqlPromise = await initSqlJs({
-	  locateFile: file => 'https://klassicnote.github.io/sql-wasm.wasm'
+	  locateFile: file => 'https://knneo.github.io/klassic-note-web/sql-wasm.wasm'
 	});
 
-	// using xmlhttprequest
-	const xhr = new XMLHttpRequest();
-	xhr.responseType = 'arraybuffer';
-	xhr.open('GET', databaseFilename, true);
-	xhr.onload = e => {
-	  const uInt8Array = new Uint8Array(xhr.response);
-	  window['db'] = new sqlPromise.Database(uInt8Array);
-	  const contents = window['db'].exec(query);
-	  if(contents && contents.length > 0)
-		  callback(contents[0]);
-	  else if(contents)
-		  callback(contents);
-	};
-	xhr.send();
-	
-	if(debugMode)
-		console.log('callDb took', Date.now() - time, 'ms');
+	//fetch api to get db
+	try
+	{
+		const response = await fetch(databaseFilename);
+		if(response.ok && response.status == 200)
+		{
+			//initialize db
+			const result = await response.arrayBuffer();
+			const uInt8Array = new Uint8Array(result);
+			window['db'] = new sqlPromise.Database(uInt8Array);
+			
+			if(debugMode)
+				console.log('callDb took', Date.now() - time, 'ms');
+		}
+		else
+		{
+			console.error('callDb: ' + response);
+		}
+	}
+	catch(e)
+	{
+		console.error('callDb: ' + e.message);
+	}
 }
 
-function queryDb(query, callback) {
+async function queryDb(query, callback) {
+	if(!window['db'])
+		await callDb();
+	
 	const time = Date.now();
 	const contents = window['db'].exec(query);
-	// console.log('queryDb',contents);
+	if(debugMode)
+		console.log('queryDb',contents);
 	if(contents && contents.length > 0)
 	  return callback(contents[0]);
 	else if(contents)
 	  return callback(contents);
   
-	if(debugMode) console.log('queryDb took', Date.now() - time, 'ms');
+	if(debugMode)
+		console.log('queryDb took', Date.now() - time, 'ms');
 }
 
 function toggleButton() {
-	window[this.id] = !window[this.id];
+	let target = event.target;
+	window[target.id] = !window[target.id];
 	
-	let temp = document.getElementById(this.id).innerText;
-	document.getElementById(this.id).innerText = this.getAttribute('data-alt');
-	this.setAttribute('data-alt', temp);
+	let temp = document.getElementById(target.id).innerText;
+	document.getElementById(target.id).innerText = target.getAttribute('data-alt');
+	target.setAttribute('data-alt', temp);
 	
-	if(this.getAttribute('data-title'))
+	if(target.getAttribute('data-title'))
 	{
-		let tempTitle = document.getElementById(this.id).title;
-		document.getElementById(this.id).title = this.getAttribute('data-title');
-		this.setAttribute('data-title', tempTitle);
+		let tempTitle = document.getElementById(target.id).title;
+		document.getElementById(target.id).title = target.getAttribute('data-title');
+		target.setAttribute('data-title', tempTitle);
 	}
 	updateQueueButtons();
+}
+
+function restartSong() {
+	document.querySelector('#player').pause();
+	document.querySelector('#player').currentTime = 0;
 }
 
 function skipSong() {
@@ -293,7 +310,7 @@ function setTabs() {
 	}
 	
 	//display tab when mobile, depending on mode
-	if(!homePageVisible) showTab('tab-info');
+	if(!homePageVisible) document.querySelector('.tab-button').click();
 	
 	//toggle search buttons
 	document.querySelector('#search').style.width = homePageVisible ? '100%' : (document.querySelector('#header').getBoundingClientRect().width - 48) + 'px';
@@ -320,10 +337,12 @@ function setTabs() {
 		if (tabHeight > 0 && !window['mini-height']) setTimeout(setTabs, 100);
 	}
 	
+	checkIfMiniMode();
 }
 
-function showTab(tabId) {
+function showTab(sourceId) {
 	document.querySelector('#tab-buttons').classList.remove('hidden');
+	let tabId = sourceId || event.target.id;
 	for(let tab of document.getElementsByClassName('tab'))
 	{
 		if(tab.id === tabId.replace('button-',''))
@@ -332,6 +351,25 @@ function showTab(tabId) {
 			tab.classList.add('hidden');
 	}
 	document.querySelector('#' + tabId.replace('button-','')).scrollIntoView(); // scroll if on desktop
+}
+
+function checkIfMiniMode() {
+	let minHeight = 10;
+	if(document.querySelector('#player') === null) return;
+	
+	// console.log('checkIfMiniMode', document.querySelector('#tab-list').getBoundingClientRect().height);
+	if (document.querySelector('html').classList.contains('mini') && 
+	window.innerHeight > window['mini-height'])
+	{
+		window['mini-height'] = null;
+		document.querySelector('html').classList.remove('mini');
+	}
+	if (!document.querySelector('html').classList.contains('mini') && 
+	document.querySelector('#tab-list').getBoundingClientRect().height <= minHeight)
+	{
+		window['mini-height'] = window.innerHeight;
+		document.querySelector('html').classList.add('mini');
+	}
 }
 
 function renderVariables() {
@@ -352,10 +390,6 @@ function renderVariables() {
 }
 
 function renderSettings() {
-	for(let setting of document.querySelectorAll('.setting'))
-	{
-		setting.addEventListener('click', toggleButton);
-	}
 	if(autoplayOnSelect)
 		document.getElementById('autoplay').click();
 	updateQueueButtons();
@@ -631,7 +665,7 @@ function generateHomepage() {
 	let query = "SELECT KNID, KNYEAR, SongTitle, ArtistTitle FROM Song";
 	if(isMobile())
 		query += " LIMIT 100";
-	callDb(query, function(contents) {
+	queryDb(query, function(contents) {
 		updateOptions(contents);
 		document.querySelector('#options').disabled = true;
 		document.querySelector('#search').disabled = false;
@@ -639,7 +673,7 @@ function generateHomepage() {
 	
 	query = "SELECT DISTINCT KNYEAR FROM SongAwardsPeriod";
 	if(debugMode) console.log('generateYears', query);
-	callDb(query, generateYears);
+	queryDb(query, generateYears);
 	
 	if(hideHomepage) return;
 	
@@ -656,13 +690,13 @@ function generateHomepage() {
 		query += "SELECT KNID, KNYEAR, SongTitle, ArtistTitle FROM Song WHERE KNID = " + id.toString() + " ";
 	}
 	if(debugMode) console.log('generateSearchHistory', query);
-	callDb(query, generateSearchHistory);
+	queryDb(query, generateSearchHistory);
 	
 	query = "SELECT ID as KNID, Type, Category, ReleaseTitle, ReleaseArtistTitle, KNYEAR, substr('0000'||ReleaseDate,-4) as ReleaseDate FROM Release ";
 	query += "WHERE KNYEAR = strftime('%Y','now') ";
 	query += "AND ReleaseDate >= cast(strftime('%m%d','now') as integer) ORDER BY ReleaseDate, ReleaseArtistTitle, ReleaseTitle LIMIT 10";
 	if(debugMode) console.log('generateUpcomingReleases', query);
-	callDb(query, generateUpcomingReleases);
+	queryDb(query, generateUpcomingReleases);
 }
 
 function generateYears(contents) {
@@ -708,7 +742,7 @@ function generateSearchHistory(contents) {
 	generateTableList(
 		contents, {
 		id: 'search-history', 
-		title: 'Recently Saearched',
+		title: 'Recently Searched',
 		rowFormat: ['KNYEAR', ' - ', 'ArtistTitle', ' - ', 'SongTitle'], 
 		clickFunc: updateSong,
 		actionTitle: 'Clear All',
@@ -735,9 +769,6 @@ function generateUpcomingReleases(contents) {
 function generateModules(contents) {
 	if(debugMode) console.log('generateModules', contents);
 	document.querySelector('#tab-homepage').style.display = 'none';
-	document.querySelector('#search-buttons').style.display = '';
-	document.querySelector('#music').innerHTML = '';
-	document.querySelector('#cover').innerHTML = '';
 	updateMediaSession();
 	
 	//clear modules
@@ -755,9 +786,8 @@ function generateModules(contents) {
 	
 	if(window['mode'] === 'song')
 	{
+		updateHeader(contents);
 		updateSearch(contents);
-		generatePlayer(contents);
-		queryCoverArt(contents);
 		queryInfo(contents);
 		queryRelated(contents);
 		queryAwards(contents);
@@ -768,7 +798,7 @@ function generateModules(contents) {
 	
 	if(window['mode'] === 'artist')
 	{
-		updateSearch(contents);		
+		// updateSearch(contents);
 		queryArtistInfo(contents);
 		queryArtistRelated(contents);
 		queryAwardsByArtist(contents);
@@ -788,6 +818,18 @@ function generateModules(contents) {
 	for(let selected of document.getElementsByClassName('not-selectable'))
 	{
 		selected.dispatchEvent(new Event('active'));
+	}
+}
+
+function updateHeader(contents) {
+	if(contents.values.length > 1) return;
+	let row = contents.values[0];
+	let columnIndexKNID = contents.columns.indexOf('ID');
+	if(row[columnIndexKNID] != window['song-id'])
+	{
+		document.querySelector('#search-buttons').style.display = '';
+		generatePlayer(contents);
+		queryCoverArt(contents);
 	}
 }
 
@@ -847,7 +889,7 @@ function generatePlayer(contents) {
 	let knyear = row[columnIndexKNYEAR];
 	
 	document.querySelector('#music').innerHTML = '';
-
+	
 	updateMediaSession({
 		title: row[columnIndexSongTitle].split('<br/>')[0],
 		artist: row[columnIndexArtistTitle].split('<br/>')[0],
@@ -875,7 +917,7 @@ function generateCoverArt(contents) {
 	let cover = document.querySelector('#cover');
 	cover.className = '';
 	cover.innerHTML = '';
-	if(contents.values.length < 1) { // if no value
+	if(contents.values.length < 1) { // if no release found
 		if(isFill) {
 			document.querySelector('#search').style.width = (document.querySelector('#header').getBoundingClientRect().width - 48) + 'px';
 			document.querySelector('#options').style.width = '';
@@ -889,6 +931,13 @@ function generateCoverArt(contents) {
 	let row = rows[0];
 	let columnIndexKNYEAR = contents.columns.indexOf('KNYEAR');
 	let columnIndexCoverArt = contents.columns.indexOf('CoverArt');
+	if(row[columnIndexCoverArt].length < 1) { // if no value
+		if(isFill) {
+			document.querySelector('#search').style.width = (document.querySelector('#header').getBoundingClientRect().width - 48) + 'px';
+			document.querySelector('#options').style.width = '';
+		}
+		return;
+	}
 	let coverArtUrl = coverArtDirectory + row[columnIndexKNYEAR] + '/' + row[columnIndexCoverArt];
 	if(coverArtDirectoryFormat && coverArtDirectoryFormat == 'common')
 		coverArtUrl = coverArtDirectory + row[columnIndexCoverArt];
@@ -1775,7 +1824,7 @@ function queryAnalysis(contents) {
 	let KNYEAR = rows[0][columnIndexData];
 
 	//Vocal Popularity Survey
-	let query = "SELECT 'All' as 'Category', COUNT(VocalCode) || ' Songs' as 'Count (%)' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode <> '' UNION ALL SELECT res.Category, res.Count || ' (' || printf('%.2f', (100.00 * res.Count / (SELECT COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode <> ''))) || '%)' AS 'Count (%)' FROM (SELECT 'Male Solo' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode = 'M' UNION ALL SELECT 'Female Solo' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode = 'F' UNION ALL SELECT 'Male Duo' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode = 'MM' UNION ALL SELECT 'Female Duo' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode = 'FF' UNION ALL SELECT 'Combined Duo' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND (VocalCode = 'MF' or VocalCode = 'FM') UNION ALL SELECT 'Trio' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND (VocalCode = 'MMM' or VocalCode = 'FFF') UNION ALL SELECT 'Quartet or More' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND LENGTH(VocalCode) > 3) res";
+	let query = "SELECT 'All' as 'Category', COUNT(VocalCode) || ' Songs' as 'Count (%)' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode <> '' UNION ALL SELECT res.Category, res.Count || ' (' || printf('%.2f', (100.00 * res.Count / (SELECT COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode <> ''))) || '%)' AS 'Count (%)' FROM (SELECT 'Male Solo' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode = 'M' UNION ALL SELECT 'Female Solo' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode = 'F' UNION ALL SELECT 'Male Duo' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode = 'MM' UNION ALL SELECT 'Female Duo' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode = 'FF' UNION ALL SELECT 'Combined Duo' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND (VocalCode = 'MF' or VocalCode = 'FM') UNION ALL SELECT 'Trio' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND (VocalCode = 'MMM' or VocalCode = 'FFF') UNION ALL SELECT 'Quartet or More' as 'Category', COUNT(VocalCode) as 'Count' FROM Song WHERE KNYEAR = " + KNYEAR + " AND LENGTH(VocalCode) > 3) res UNION ALL SELECT 'Solo Female To Male Ratio' as 'Category', printf('%.3f',(1.0*(SELECT COUNT(VocalCode) FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode = 'F')/(SELECT COUNT(VocalCode) FROM Song WHERE KNYEAR = " + KNYEAR + " AND VocalCode = 'M'))) as 'Count'";
 	
 	if(debugMode) console.log('generateVocalPopularity', query);
 	queryDb(query, generateVocalPopularity);
@@ -2075,7 +2124,7 @@ function updateQueue(next) {
 
 function updateQueueButtons() {
 	document.querySelector('#queue-options').style.display = window['shuffle-mode'] ? '' : 'none';
-	window['autoplay'] = document.querySelector('#autoplay')?.innerText === 'music_note' ?? false;
+	window['autoplay'] = document.querySelector('#autoplay').innerText === 'music_note';
 }
 
 function scrollToTop() {
@@ -2094,7 +2143,7 @@ function clearModules() {
 
 function updateSong() {	
 	window['mode'] = 'song';
-	let playlistOpen = document.querySelector('#song-queue')?.innerText === 'format_indent_increase' ?? false;
+	let playlistOpen = document.querySelector('#song-queue').innerText === 'format_indent_increase';
 	hideContextMenus(true);
 	clearModules();
 	
@@ -2158,7 +2207,7 @@ function queueSongs(ids) {
 	window['playlist'] = ids;
 	window['playing'] = -1;
 	window['mode'] = 'song';
-	if(!window['autoplay']) document.querySelector('.autoplay')?.click();
+	if(!window['autoplay']) document.querySelector('.autoplay').click();
 	
 	let optQuery = "SELECT * FROM Song WHERE KNID = ";
 	optQuery += window['playlist'][window['playing'] + 1];
@@ -2590,6 +2639,7 @@ function updateMediaSession(session) {
 		if (session && navigator && 'mediaSession' in navigator) {
 			var meta = navigator.mediaSession.metadata;
 			navigator.mediaSession.metadata = new MediaMetadata(session);
+			navigator.mediaSession.setActionHandler("previoustrack", restartSong);
 			navigator.mediaSession.setActionHandler("nexttrack", skipSong);
 			if(debugMode) 
 				console.log('metadata', navigator.mediaSession.metadata.toString());
@@ -2609,7 +2659,7 @@ function showContextMenu() {
 	
 	let box = document.body.getBoundingClientRect();
     let x = event.clientX - box.left;
-    let y = event.clientY - box.top - document.querySelector('#song-queue')?.getBoundingClientRect().height ?? 0;
+    let y = event.clientY - box.top - document.querySelector('#song-queue').getBoundingClientRect().height;
 	
 	let menu = document.querySelector('.context');
     menu.style.top = y + 'px';
@@ -2691,7 +2741,20 @@ function showPlaylist() {
 			if(p < window['playlist'].length - 1) query += " UNION ALL ";
 		}
 		if(debugMode) console.log('showPlaylist', query);
-		return queryDb(query, renderPlaylistItems);
+		queryDb(query, function(list) {
+			let playing = window['playlist'][window['playing']];
+			for(let listItem of list.values)
+			{
+				let item = document.createElement('div');
+				item.classList.add('tag');
+				if(window['playlist'].indexOf(listItem[0].toString()) === window['playing']) // if playing as ID of item
+					item.classList.add('highlight');
+				item.setAttribute('data-id', listItem[0]);
+				item.innerText = listItem[1];
+				item.addEventListener('click', updateSong);
+				submenu.appendChild(item);
+			}
+		});
 	}
 	else if(window['playlist'].length === 0)
 	{
@@ -2707,34 +2770,24 @@ function showPlaylist() {
 	return submenu;
 }
 
-function renderPlaylistItems(list) {
-	let submenu = document.createElement('div');
-	submenu.classList.add('playlist');
-	
-	let playing = window['playlist'][window['playing']];
-	for(let listItem of list.values)
-	{
-		let item = document.createElement('div');
-		item.classList.add('tag');
-		if(window['playlist'].indexOf(listItem[0].toString()) === window['playing']) // if playing as ID of item
-			item.classList.add('highlight');
-		item.setAttribute('data-id', listItem[0]);
-		item.innerText = listItem[1];
-		item.addEventListener('click', updateSong);
-		submenu.appendChild(item);
-	}
-	return submenu;
-}
-
 function clearPlaylist() {
 	event.preventDefault();
 	
 	if(confirm('Clear Playlist?'))
 	{
-		// clear all but playing
-		window['playlist'] = window['playlist'].slice(window['playing'], window['playing'] + 1);
-		// assume after clear, only song in playlist
-		window['playing'] = 0;
+		if(document.querySelector('#music').childElementCount > 0)
+		{
+			// clear all but playing
+			window['playlist'] = window['playlist'].slice(window['playing'], window['playing'] + 1);
+			// assume after clear, only song in playlist
+			window['playing'] = 0;
+		}
+		else
+		{
+			// reset all
+			window['playlist'] = [];
+			window['playing'] = null;
+		}
 		
 		hideContextMenus(true);
 	}
